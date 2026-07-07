@@ -1,4 +1,8 @@
-use std::{env, fs};
+use std::{
+    env, fs,
+    io::{self, Write},
+    process::Command,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
@@ -13,7 +17,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let bytes = reqwest::blocking::get(&url)?.bytes()?;
                 let pkg_name = format!("{}.tar.gz", pkg);
 
-                fs::write(pkg_name, &bytes)?;
+                fs::write(&pkg_name, &bytes)?;
+
+                print!("Extract tar.gz file? (y/n): ");
+                io::stdout().flush()?;
+                let mut choice = String::new();
+                io::stdin().read_line(&mut choice)?;
+
+                if choice.trim().to_lowercase() == "y" {
+                    let extract = Command::new("tar").arg("-xf").arg(&pkg_name).status()?;
+
+                    if !extract.success() {
+                        eprintln!("Extract failed");
+                    }
+                }
+
+                print!("Remove tar.gz file? (y/n): ");
+                io::stdout().flush()?;
+                let mut choice = String::new();
+                io::stdin().read_line(&mut choice)?;
+
+                if choice.trim().to_lowercase() == "y" {
+                    let remove = Command::new("rm").arg(&pkg_name).status()?;
+
+                    if !remove.success() {
+                        eprintln!("Remove failed");
+                    }
+                }
             }
             None => println!("Usage: tarman install <package>"),
         },
