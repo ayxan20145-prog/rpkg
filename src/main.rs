@@ -5,59 +5,31 @@ use std::{
     process::Command,
 };
 
+struct Package {
+    name: String,
+    description: String,
+    version: String,
+    url: String,
+}
+
+impl Package {
+    fn print(&self) {
+        println!(
+            "Package found\n Name: {}\n Description: {}\n Version: {}",
+            self.name, self.description, self.version
+        );
+    }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
 
     match args.get(1).map(String::as_str) {
         Some("install") => match args.get(2).map(String::as_str) {
             Some(pkg) => {
-                let dir = PathBuf::from(std::env::var("HOME")?)
-                    .join(".local")
-                    .join("share")
-                    .join("rpkg");
+                let package = parse_index(pkg)?;
 
-                let index = fs::read_to_string(dir.join("index"))?;
-
-                let mut found = false;
-
-                let mut name = String::new();
-                let mut description = String::new();
-                let mut version = String::new();
-                let mut url = String::new();
-
-                for line in index.lines() {
-                    let line = line.trim();
-
-                    if !found {
-                        if line == pkg {
-                            found = true;
-                            name = line.to_string();
-                        }
-                        continue;
-                    }
-
-                    if line == "end" {
-                        break;
-                    }
-
-                    if let Some(value) = line.strip_prefix("description ") {
-                        description = value.to_string();
-                    } else if let Some(value) = line.strip_prefix("version ") {
-                        version = value.to_string();
-                    } else if let Some(value) = line.strip_prefix("url ") {
-                        url = value.to_string();
-                    }
-                }
-
-                if !found {
-                    println!("Package '{}' not found.", pkg);
-                    return Ok(());
-                }
-
-                println!(
-                    "Package found\n Name: {}\n Description: {}\n Version: {}",
-                    name, description, version
-                );
+                package.print();
 
                 print!("\nInstall? (y/n): ");
                 io::stdout().flush()?;
@@ -65,13 +37,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 io::stdin().read_line(&mut choice)?;
                 if choice.trim() == "y" {
                     println!("Installing...");
-                    let bytes = reqwest::blocking::get(&url)?.bytes()?;
-                    let pkg_name = format!("{name}.tar.gz");
+                    let bytes = reqwest::blocking::get(&package.url)?.bytes()?;
+                    let pkg_name = format!("{}.tar.gz", package.name);
 
                     fs::write(&pkg_name, &bytes)?;
 
                     println!("Extracting...");
-                    let extract = Command::new("tar").arg("-xf").arg(&pkg_name).status()?;
+                    let extract = Command::new("tar").arg("-xvf").arg(&pkg_name).status()?;
 
                     if !extract.success() {
                         return Err("Extract failed".into());
@@ -84,6 +56,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             None => println!("Usage: rpkg install <package>"),
+        },
+        Some("search") => match args.get(2).map(String::as_str) {
+            Some(pkg) => {
+                let package = parse_index(pkg)?;
+
+                package.print();
+            }
+            None => println!("Usage: rpkg search <package>"),
         },
         Some("update") => {
             let dir = PathBuf::from(std::env::var("HOME")?)
@@ -99,8 +79,58 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             fs::write(dir.join("index"), &bytes)?;
         }
         Some(cmd) => println!("Unknown command: {}", cmd),
-        None => println!("Usage: \nrpkg install <package>\nrpkg update"),
+        None => println!("Usage: \nrpkg install <package>\nrpkg update\nrpkg search <package>"),
     }
 
     Ok(())
+}
+fn parse_index(pkg: &str) -> Result<Package, Box<dyn std::error::Error>> {
+    let dir = PathBuf::from(std::env::var("HOME")?)
+        .join(".local")
+        .join("share")
+        .join("rpkg");
+
+    let index = fs::read_to_string(dir.join("index"))?;
+
+    let mut found = false;
+
+    let mut name = String::new();
+    let mut description = String::new();
+    let mut version = String::new();
+    let mut url = String::new();
+
+    for line in index.lines() {
+        let line = line.trim();
+
+        if !found {
+            if line == pkg {
+                found = true;
+                name = line.to_string();
+            }
+            continue;
+        }
+
+        if line == "end" {
+            break;
+        }
+
+        if let Some(value) = line.strip_prefix("description ") {
+            description = value.to_string();
+        } else if let Some(value) = line.strip_prefix("version ") {
+            version = value.to_string();
+        } else if let Some(value) = line.strip_prefix("url ") {
+            url = value.to_string();
+        }
+    }
+
+    if !found {
+        return Err(format!("Package '{}' not found.", pkg).into());
+    }
+
+    Ok(Package {
+        name,
+        description,
+        version,
+        url,
+    })
 }
