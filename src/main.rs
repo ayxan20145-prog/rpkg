@@ -52,6 +52,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("Removing tar.gz file...");
                     fs::remove_file(&pkg_name)?;
 
+                    println!("Moving executable to .local/bin...");
+                    let dir = PathBuf::from(std::env::var("HOME")?)
+                        .join(".local")
+                        .join("bin");
+
+                    fs::create_dir_all(&dir)?;
+
+                    let path_to_executable = format!("{}/bin/{}", package.name, package.name);
+                    let path_to_bin = PathBuf::from(std::env::var("HOME")?)
+                        .join(".local")
+                        .join("bin")
+                        .join(&package.name);
+                    if path_to_bin.exists() {
+                        fs::remove_file(&path_to_bin)?;
+                    }
+                    fs::rename(&path_to_executable, &path_to_bin)?;
+
+                    let status = Command::new("chmod").arg("+x").arg(&path_to_bin).status()?;
+
+                    if !status.success() {
+                        return Err("chmod failed".into());
+                    }
+
+                    println!("Cleaning up...");
+                    fs::remove_dir_all(&package.name)?;
+
                     println!("\nDone!");
                 }
             }
