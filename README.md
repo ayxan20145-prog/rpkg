@@ -1,2 +1,2 @@
-# tarman
-tarman is a simple package manager written in rust
+# rpkg
+rpkg is a simple package manager written in rust
