@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut choice = String::new();
                 io::stdin().read_line(&mut choice)?;
                 if choice.trim() == "y" {
-                    println!("Installing...");
+                    println!("Installing {}...", pkg);
                     let bytes = reqwest::blocking::get(&package.url)?.bytes()?;
                     let pkg_name = format!("{}.tar.gz", package.name);
 
@@ -107,8 +107,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             println!("Done!");
         }
+        Some("remove") => match args.get(2).map(String::as_str) {
+            Some(pkg) => {
+                let path = PathBuf::from(std::env::var("HOME")?)
+                    .join(".local")
+                    .join("bin")
+                    .join(pkg);
+                if path.exists() {
+                    println!("Removing {}...", pkg);
+                    fs::remove_file(path)?;
+                    println!("Done!");
+                } else {
+                    println!("Unknown package");
+                }
+            }
+            None => println!("Usage: rpkg remove <package>"),
+        },
         Some(cmd) => println!("Unknown command: {}", cmd),
-        None => println!("Usage: \nrpkg install <package>\nrpkg update\nrpkg search <package>"),
+        None => println!(
+            "Usage: \n rpkg install <package>\n rpkg search <package>\n rpkg remove <package>\n rpkg update"
+        ),
     }
 
     Ok(())
