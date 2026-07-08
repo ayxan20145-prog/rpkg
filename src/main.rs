@@ -92,6 +92,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             None => println!("Usage: rpkg search <package>"),
         },
         Some("update") => {
+            println!("Updating index...");
             let dir = PathBuf::from(std::env::var("HOME")?)
                 .join(".local")
                 .join("share")
@@ -103,6 +104,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let bytes = reqwest::blocking::get(url)?.bytes()?;
 
             fs::write(dir.join("index"), &bytes)?;
+
+            println!("Done!");
         }
         Some(cmd) => println!("Unknown command: {}", cmd),
         None => println!("Usage: \nrpkg install <package>\nrpkg update\nrpkg search <package>"),
