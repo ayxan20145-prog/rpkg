@@ -105,7 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             fs::write(dir.join("index"), &bytes)?;
 
-            println!("Done!");
+            println!("\nDone!");
         }
         Some("remove") => match args.get(2).map(String::as_str) {
             Some(pkg) => {
@@ -116,7 +116,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if path.exists() {
                     println!("Removing {}...", pkg);
                     fs::remove_file(path)?;
-                    println!("Done!");
+                    println!("\nDone!");
                 } else {
                     println!("Unknown package");
                 }
