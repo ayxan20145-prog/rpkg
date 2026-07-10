@@ -78,6 +78,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("Cleaning up...");
                     fs::remove_dir_all(&package.name)?;
 
+                    let dir = PathBuf::from(std::env::var("HOME")?)
+                        .join(".local")
+                        .join("bin");
+
+                    let in_path = env::var_os("PATH")
+                        .map(|path| env::split_paths(&path).any(|p| p == dir))
+                        .unwrap_or(false);
+
+                    if !in_path {
+                        println!("Warning: {} not in path", dir.display());
+                    }
+
                     println!("\nDone!");
                 }
             }
