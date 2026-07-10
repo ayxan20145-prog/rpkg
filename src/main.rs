@@ -1,3 +1,4 @@
+use colored::Colorize;
 use std::{
     env, fs,
     io::{self, Write},
@@ -46,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let extract = Command::new("tar").arg("-xvf").arg(&pkg_name).status()?;
 
                     if !extract.success() {
-                        return Err("Extract failed".into());
+                        return Err("Extract failed".red().to_string().into());
                     }
 
                     println!("Removing tar.gz file...");
@@ -72,7 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let status = Command::new("chmod").arg("+x").arg(&path_to_bin).status()?;
 
                     if !status.success() {
-                        return Err("chmod failed".into());
+                        return Err("chmod failed".red().to_string().into());
                     }
 
                     println!("Cleaning up...");
@@ -87,7 +88,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .unwrap_or(false);
 
                     if !in_path {
-                        println!("Warning: {} not in path", dir.display());
+                        println!(
+                            "{}",
+                            format!("Warning: {} not in path", dir.display().to_string()).red()
+                        );
                     }
 
                     println!("\nDone!");
@@ -183,7 +187,7 @@ fn parse_index(pkg: &str) -> Result<Package, Box<dyn std::error::Error>> {
     }
 
     if !found {
-        return Err(format!("Package '{}' not found.", pkg).into());
+        return Err(format!("Package '{}' not found.", pkg).red().into());
     }
 
     Ok(Package {
