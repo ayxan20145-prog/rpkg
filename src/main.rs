@@ -37,6 +37,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut choice = String::new();
                 io::stdin().read_line(&mut choice)?;
                 if choice.trim() == "y" {
+                    println!("Checking for conflicting packages...");
+                    let path = PathBuf::from(std::env::var("HOME")?)
+                        .join(".local")
+                        .join("share")
+                        .join("rpkg")
+                        .join("installed_pkgs");
+
+                    if !path.exists() {
+                        fs::create_dir_all(&path)?;
+                    }
+
+                    let pkg_file_path = path.join(&package.name);
+
+                    if pkg_file_path.exists() {
+                        print!("Package: {} exists. Reinstall? (y/n): ", package.name);
+                        io::stdout().flush()?;
+                        let mut choice = String::new();
+                        io::stdin().read_line(&mut choice)?;
+
+                        if choice.trim() != "y" {
+                            return Ok(());
+                        }
+                    }
+
                     println!("Installing {}...", pkg);
                     let bytes = reqwest::blocking::get(&package.url)?.bytes()?;
                     let pkg_name = format!("{}.tar.gz", package.name);
@@ -94,6 +118,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         );
                     }
 
+                    let pkg_content = format!(
+                        "{}\ndescription {}\nversion {}\nurl {}\nend\n",
+                        package.name, package.description, package.version, package.url
+                    );
+
+                    fs::write(&pkg_file_path, &pkg_content)?;
+
                     println!("\nDone!");
                 }
             }
@@ -127,11 +158,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Some(pkg) => {
                 let path = PathBuf::from(std::env::var("HOME")?)
                     .join(".local")
-                    .join("bin")
+                    .join("share")
+                    .join("rpkg")
+                    .join("installed_pkgs")
                     .join(pkg);
                 if path.exists() {
                     println!("Removing {}...", pkg);
                     fs::remove_file(path)?;
+                    let path_to_pkg = PathBuf::from(std::env::var("HOME")?)
+                        .join(".local")
+                        .join("bin")
+                        .join(pkg);
+                    fs::remove_file(path_to_pkg)?;
                     println!("\nDone!");
                 } else {
                     println!("Unknown package");
