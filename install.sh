@@ -48,3 +48,5 @@ case "$SHELL_NAME" in
         echo "Add $LOCAL_BIN manually to your PATH"
         ;;
 esac
+export PATH="$LOCAL_BIN:$PATH"
+rpkg update
