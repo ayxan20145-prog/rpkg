@@ -28,105 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match args.get(1).map(String::as_str) {
         Some("install") => match args.get(2).map(String::as_str) {
             Some(pkg) => {
-                let package = parse_index(pkg)?;
-
-                package.print();
-
-                print!("\nInstall? (y/n): ");
-                io::stdout().flush()?;
-                let mut choice = String::new();
-                io::stdin().read_line(&mut choice)?;
-                if choice.trim() == "y" {
-                    println!("Checking for conflicting packages...");
-                    let path = PathBuf::from(std::env::var("HOME")?)
-                        .join(".local")
-                        .join("share")
-                        .join("rpkg")
-                        .join("installed_pkgs");
-
-                    if !path.exists() {
-                        fs::create_dir_all(&path)?;
-                    }
-
-                    let pkg_file_path = path.join(&package.name);
-
-                    if pkg_file_path.exists() {
-                        print!("Package: {} exists. Reinstall? (y/n): ", package.name);
-                        io::stdout().flush()?;
-                        let mut choice = String::new();
-                        io::stdin().read_line(&mut choice)?;
-
-                        if choice.trim() != "y" {
-                            return Ok(());
-                        }
-                    }
-
-                    println!("Installing {}...", pkg);
-                    let bytes = reqwest::blocking::get(&package.url)?.bytes()?;
-                    let pkg_name = format!("{}.tar.gz", package.name);
-
-                    fs::write(&pkg_name, &bytes)?;
-
-                    println!("Extracting...");
-                    let extract = Command::new("tar").arg("-xvf").arg(&pkg_name).status()?;
-
-                    if !extract.success() {
-                        return Err("Extract failed".red().to_string().into());
-                    }
-
-                    println!("Removing tar.gz file...");
-                    fs::remove_file(&pkg_name)?;
-
-                    println!("Moving executable to .local/bin...");
-                    let dir = PathBuf::from(std::env::var("HOME")?)
-                        .join(".local")
-                        .join("bin");
-
-                    fs::create_dir_all(&dir)?;
-
-                    let path_to_executable = format!("{}/bin/{}", package.name, package.name);
-                    let path_to_bin = PathBuf::from(std::env::var("HOME")?)
-                        .join(".local")
-                        .join("bin")
-                        .join(&package.name);
-                    if path_to_bin.exists() {
-                        fs::remove_file(&path_to_bin)?;
-                    }
-                    fs::rename(&path_to_executable, &path_to_bin)?;
-
-                    let status = Command::new("chmod").arg("+x").arg(&path_to_bin).status()?;
-
-                    if !status.success() {
-                        return Err("chmod failed".red().to_string().into());
-                    }
-
-                    println!("Cleaning up...");
-                    fs::remove_dir_all(&package.name)?;
-
-                    let dir = PathBuf::from(std::env::var("HOME")?)
-                        .join(".local")
-                        .join("bin");
-
-                    let in_path = env::var_os("PATH")
-                        .map(|path| env::split_paths(&path).any(|p| p == dir))
-                        .unwrap_or(false);
-
-                    if !in_path {
-                        println!(
-                            "{}",
-                            format!("Warning: {} not in path", dir.display().to_string()).red()
-                        );
-                    }
-
-                    let pkg_content = format!(
-                        "{}\ndescription {}\nversion {}\nurl {}\nend\n",
-                        package.name, package.description, package.version, package.url
-                    );
-
-                    fs::write(&pkg_file_path, &pkg_content)?;
-
-                    println!("\nDone!");
-                }
+                install(pkg, false)?;
             }
             None => println!("Usage: rpkg install <package>"),
         },
@@ -177,10 +79,121 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             None => println!("Usage: rpkg remove <package>"),
         },
+        Some("upgrade") => {
+            let pkgs = get_installed_pkgs()?;
+            for pkg in pkgs {
+                install(&pkg, true)?;
+            }
+        }
         Some(cmd) => println!("Unknown command: {}", cmd),
         None => println!(
             "Usage: \n rpkg install <package>\n rpkg search <package>\n rpkg remove <package>\n rpkg update"
         ),
+    }
+
+    Ok(())
+}
+fn install(pkg: &str, force: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let package = parse_index(pkg)?;
+
+    package.print();
+
+    print!("\nInstall? (y/n): ");
+    io::stdout().flush()?;
+    let mut choice = String::new();
+    io::stdin().read_line(&mut choice)?;
+    if choice.trim() == "y" {
+        println!("Checking for conflicting packages...");
+        let path = PathBuf::from(std::env::var("HOME")?)
+            .join(".local")
+            .join("share")
+            .join("rpkg")
+            .join("installed_pkgs");
+
+        if !path.exists() {
+            fs::create_dir_all(&path)?;
+        }
+
+        let pkg_file_path = path.join(&package.name);
+
+        if !force {
+            if pkg_file_path.exists() {
+                print!("Package: {} exists. Reinstall? (y/n): ", package.name);
+                io::stdout().flush()?;
+                let mut choice = String::new();
+                io::stdin().read_line(&mut choice)?;
+
+                if choice.trim() != "y" {
+                    return Ok(());
+                }
+            }
+        }
+
+        println!("Installing {}...", pkg);
+        let bytes = reqwest::blocking::get(&package.url)?.bytes()?;
+        let pkg_name = format!("{}.tar.gz", package.name);
+
+        fs::write(&pkg_name, &bytes)?;
+
+        println!("Extracting...");
+        let extract = Command::new("tar").arg("-xvf").arg(&pkg_name).status()?;
+
+        if !extract.success() {
+            return Err("Extract failed".red().to_string().into());
+        }
+
+        println!("Removing tar.gz file...");
+        fs::remove_file(&pkg_name)?;
+
+        println!("Moving executable to .local/bin...");
+        let dir = PathBuf::from(std::env::var("HOME")?)
+            .join(".local")
+            .join("bin");
+
+        fs::create_dir_all(&dir)?;
+
+        let path_to_executable = format!("{}/bin/{}", package.name, package.name);
+        let path_to_bin = PathBuf::from(std::env::var("HOME")?)
+            .join(".local")
+            .join("bin")
+            .join(&package.name);
+        if path_to_bin.exists() {
+            fs::remove_file(&path_to_bin)?;
+        }
+        fs::rename(&path_to_executable, &path_to_bin)?;
+
+        let status = Command::new("chmod").arg("+x").arg(&path_to_bin).status()?;
+
+        if !status.success() {
+            return Err("chmod failed".red().to_string().into());
+        }
+
+        println!("Cleaning up...");
+        fs::remove_dir_all(&package.name)?;
+
+        let dir = PathBuf::from(std::env::var("HOME")?)
+            .join(".local")
+            .join("bin");
+
+        let in_path = env::var_os("PATH")
+            .map(|path| env::split_paths(&path).any(|p| p == dir))
+            .unwrap_or(false);
+
+        if !in_path {
+            println!(
+                "{}",
+                format!("Warning: {} not in path", dir.display().to_string()).red()
+            );
+        }
+
+        let pkg_content = format!(
+            "{}\ndescription {}\nversion {}\nurl {}\nend\n",
+            package.name, package.description, package.version, package.url
+        );
+
+        fs::write(&pkg_file_path, &pkg_content)?;
+
+        println!("\nDone!");
     }
 
     Ok(())
@@ -234,4 +247,17 @@ fn parse_index(pkg: &str) -> Result<Package, Box<dyn std::error::Error>> {
         version,
         url,
     })
+}
+fn get_installed_pkgs() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let dir = PathBuf::from(std::env::var("HOME")?)
+        .join(".local")
+        .join("share")
+        .join("rpkg")
+        .join("installed_pkgs");
+    let files: Vec<String> = fs::read_dir(dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().to_string())
+        .collect();
+
+    Ok(files)
 }
