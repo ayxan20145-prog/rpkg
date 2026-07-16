@@ -26,6 +26,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
 
     match args.get(1).map(String::as_str) {
+        Some("-h") | Some("--help") => {
+            print_help();
+        }
+        Some("-v") | Some("--version") => {
+            println!("rpkg 1.0.0");
+        }
         Some("install") => match args.get(2).map(String::as_str) {
             Some(pkg) => {
                 install(pkg, false)?;
@@ -268,4 +274,31 @@ fn get_installed_pkgs() -> Result<Vec<String>, Box<dyn std::error::Error>> {
         .collect();
 
     Ok(files)
+}
+fn print_help() {
+    println!(
+        r#"rpkg - A simple package manager
+
+Usage:
+  rpkg <command> [package]
+
+Commands:
+  install <package>    Install a package
+  search <package>     Search for a package
+  remove <package>     Remove an installed package
+  update               Update the package index
+  upgrade              Upgrade all installed packages
+  list                 List installed packages
+
+Options:
+  -h, --help           Show this help message
+  -v, --version        Show version information
+
+Examples:
+  rpkg update
+  rpkg search rfetch
+  rpkg install rfetch
+  rpkg remove rfetch
+"#
+    );
 }
