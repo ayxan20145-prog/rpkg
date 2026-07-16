@@ -40,62 +40,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         Some("search") => match args.get(2).map(String::as_str) {
             Some(pkg) => {
-                let package = parse_index(pkg)?;
-
-                package.print();
+                search(pkg)?;
             }
             None => println!("Usage: rpkg search <package>"),
         },
         Some("update") => {
-            println!("Updating index...");
-            let dir = PathBuf::from(std::env::var("HOME")?)
-                .join(".local")
-                .join("share")
-                .join("rpkg");
-
-            fs::create_dir_all(&dir)?;
-
-            let url = "https://raw.githubusercontent.com/ayxan20145-prog/rpkgs/main/index";
-            let bytes = reqwest::blocking::get(url)?.bytes()?;
-
-            fs::write(dir.join("index"), &bytes)?;
-
-            println!("\nDone!");
+            update()?;
         }
         Some("remove") => match args.get(2).map(String::as_str) {
             Some(pkg) => {
-                let path = PathBuf::from(std::env::var("HOME")?)
-                    .join(".local")
-                    .join("share")
-                    .join("rpkg")
-                    .join("installed_pkgs")
-                    .join(pkg);
-                if path.exists() {
-                    println!("Removing {}...", pkg);
-                    fs::remove_file(path)?;
-                    let path_to_pkg = PathBuf::from(std::env::var("HOME")?)
-                        .join(".local")
-                        .join("bin")
-                        .join(pkg);
-                    fs::remove_file(path_to_pkg)?;
-                    println!("\nDone!");
-                } else {
-                    println!("Unknown package");
-                }
+                remove(pkg)?;
             }
             None => println!("Usage: rpkg remove <package>"),
         },
         Some("upgrade") => {
-            let pkgs = get_installed_pkgs()?;
-            for pkg in pkgs {
-                install(&pkg, true)?;
-            }
+            upgrade()?;
         }
         Some("list") => {
-            let pkgs = get_installed_pkgs()?;
-            for pkg in pkgs {
-                println!("{}", pkg);
-            }
+            list()?;
         }
         Some(cmd) => println!("Unknown command: {}", cmd),
         None => println!(
@@ -210,6 +172,69 @@ fn install(pkg: &str, force: bool) -> Result<(), Box<dyn std::error::Error>> {
     fs::write(&pkg_file_path, &pkg_content)?;
 
     println!("\nDone!");
+
+    Ok(())
+}
+fn search(pkg: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let package = parse_index(pkg)?;
+
+    package.print();
+
+    Ok(())
+}
+fn update() -> Result<(), Box<dyn std::error::Error>> {
+    println!("Updating index...");
+    let dir = PathBuf::from(std::env::var("HOME")?)
+        .join(".local")
+        .join("share")
+        .join("rpkg");
+
+    fs::create_dir_all(&dir)?;
+
+    let url = "https://raw.githubusercontent.com/ayxan20145-prog/rpkgs/main/index";
+    let bytes = reqwest::blocking::get(url)?.bytes()?;
+
+    fs::write(dir.join("index"), &bytes)?;
+
+    println!("\nDone!");
+
+    Ok(())
+}
+fn remove(pkg: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let path = PathBuf::from(std::env::var("HOME")?)
+        .join(".local")
+        .join("share")
+        .join("rpkg")
+        .join("installed_pkgs")
+        .join(pkg);
+    if path.exists() {
+        println!("Removing {}...", pkg);
+        fs::remove_file(path)?;
+        let path_to_pkg = PathBuf::from(std::env::var("HOME")?)
+            .join(".local")
+            .join("bin")
+            .join(pkg);
+        fs::remove_file(path_to_pkg)?;
+        println!("\nDone!");
+    } else {
+        println!("Unknown package");
+    }
+
+    Ok(())
+}
+fn upgrade() -> Result<(), Box<dyn std::error::Error>> {
+    let pkgs = get_installed_pkgs()?;
+    for pkg in pkgs {
+        install(&pkg, true)?;
+    }
+
+    Ok(())
+}
+fn list() -> Result<(), Box<dyn std::error::Error>> {
+    let pkgs = get_installed_pkgs()?;
+    for pkg in pkgs {
+        println!("{}", pkg);
+    }
 
     Ok(())
 }
