@@ -85,6 +85,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 install(&pkg, true)?;
             }
         }
+        Some("list") => {
+            let pkgs = get_installed_pkgs()?;
+            for pkg in pkgs {
+                println!("{}", pkg);
+            }
+        }
         Some(cmd) => println!("Unknown command: {}", cmd),
         None => println!(
             "Usage: \n rpkg install <package>\n rpkg search <package>\n rpkg remove <package>\n rpkg update"
